@@ -5,6 +5,13 @@ use http_visualizer_app::AppBuilder;
 use std::net::TcpListener;
 use tauri::Manager;
 
+/// Initialize the rustls crypto provider.
+fn init_crypto_provider() {
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .expect("Failed to install rustls crypto provider");
+}
+
 /// Find an available port
 fn find_available_port() -> u16 {
     TcpListener::bind("127.0.0.1:0")
@@ -15,6 +22,9 @@ fn find_available_port() -> u16 {
 }
 
 fn main() {
+    // Install rustls crypto provider before any TLS operations
+    init_crypto_provider();
+
     // Find an available port for the backend server
     let port = find_available_port();
 

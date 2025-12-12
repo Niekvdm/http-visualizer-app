@@ -20,6 +20,9 @@ tower-http = { version = "0.5", features = ["cors"] }
 # Use the parent crate for shared proxy functionality
 http-visualizer-app = { path = ".." }
 
+# TLS crypto provider
+rustls = { version = "0.23", default-features = false, features = ["std", "ring"] }
+
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
