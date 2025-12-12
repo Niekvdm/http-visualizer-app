@@ -1,0 +1,81 @@
+[package]
+name = "http-visualizer-app"
+version = "0.1.0"
+edition = "2021"
+description = "HTTP Visualizer backend server with CORS-bypassing proxy"
+authors = ["HTTP Visualizer"]
+
+[lib]
+name = "http_visualizer_app"
+path = "src/lib.rs"
+
+[[bin]]
+name = "http-visualizer-app"
+path = "src/main.rs"
+
+[dependencies]
+# Web framework
+axum = { version = "0.7", features = ["macros"] }
+tokio = { version = "1", features = ["full"] }
+
+# HTTP client for proxy requests (used for simple cases)
+reqwest = { version = "0.12", default-features = false, features = [
+    "rustls-tls",
+    "json",
+    "gzip",
+    "brotli",
+    "deflate",
+] }
+
+# Low-level HTTP for detailed timing
+hyper = { version = "1", features = ["client", "http1", "http2"] }
+hyper-util = { version = "0.1", features = ["client", "client-legacy", "http1", "http2", "tokio"] }
+http-body-util = "0.1"
+
+# TLS with certificate access
+tokio-rustls = "0.26"
+rustls = { version = "0.23", default-features = false, features = ["std", "tls12"] }
+rustls-pki-types = "1"
+webpki-roots = "0.26"
+x509-parser = "0.16"
+
+# DNS resolution for timing
+hickory-resolver = "0.24"
+
+# Compression
+flate2 = "1"
+brotli = "7"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# URL parsing
+url = "2"
+
+# Static file serving and embedding
+rust-embed = { version = "8", features = ["interpolate-folder-path"] }
+mime_guess = "2"
+
+# CORS and middleware
+tower-http = { version = "0.5", features = ["cors", "compression-gzip", "trace"] }
+tower = "0.4"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Error handling
+thiserror = "1"
+
+# Base64 encoding for binary responses
+base64 = "0.22"
+
+[build-dependencies]
+# Build script dependencies (if needed)
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
