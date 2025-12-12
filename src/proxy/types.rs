@@ -39,7 +39,7 @@ pub struct TimingInfo {
 }
 
 /// Redirect hop information
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct RedirectHop {
     pub url: String,
     pub status: u16,
@@ -53,7 +53,7 @@ pub struct RedirectHop {
 }
 
 /// TLS/SSL information
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct TlsInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub protocol: Option<String>,
@@ -72,7 +72,7 @@ pub struct TlsInfo {
 }
 
 /// Size breakdown information
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SizeBreakdown {
     pub headers: usize,

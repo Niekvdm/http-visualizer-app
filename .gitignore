@@ -2,3 +2,5 @@
 /frontend/*
 !/frontend/.gitkeep
 Cargo.lock
+src-tauri/gen
+src-tauri/target
