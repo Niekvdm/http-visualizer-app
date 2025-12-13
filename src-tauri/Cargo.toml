@@ -14,8 +14,9 @@ tauri-plugin-shell = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }
-axum = { version = "0.7", features = ["macros"] }
-tower-http = { version = "0.5", features = ["cors"] }
+
+# SQLite database
+rusqlite = { version = "0.32", features = ["bundled"] }
 
 # Use the parent crate for shared proxy functionality
 http-visualizer-app = { path = ".." }

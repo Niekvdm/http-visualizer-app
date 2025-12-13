@@ -1,46 +1,119 @@
-# HTTP Visualizer Backend
+# HTTP Visualizer Backend & Desktop App
 
-A Rust-based backend server for HTTP Visualizer that provides CORS-bypassing proxy functionality and serves the Vue frontend as a single deployable binary.
+A Rust-based backend server and Tauri desktop application for HTTP Visualizer. Provides CORS-bypassing proxy functionality with optional SQLite storage for the desktop version.
 
 ## Architecture
 
+The project supports two deployment modes:
+
+### Web Mode (Standalone Server)
+
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                     Client (Browser)                     │
-└─────────────────────────┬───────────────────────────────┘
-                          │
-                          ▼
+│                     Browser                              │
+│   ┌─────────────────────────────────────────────────┐   │
+│   │            Vue Frontend (localStorage)           │   │
+│   └─────────────────────────┬───────────────────────┘   │
+└─────────────────────────────┼───────────────────────────┘
+                              │ fetch(/api/proxy)
+                              ▼
 ┌─────────────────────────────────────────────────────────┐
 │                   Rust Backend (Axum)                    │
 │  ┌─────────────────┐  ┌─────────────────────────────┐   │
 │  │  Static Files   │  │      /api/proxy             │   │
-│  │  (rust-embed)   │  │   (reqwest HTTP client)     │   │
+│  │  (rust-embed)   │  │   (HTTP client)             │   │
 │  └─────────────────┘  └─────────────────────────────┘   │
-└─────────────────────────┬───────────────────────────────┘
-                          │
-                          ▼
+└─────────────────────────────────────────────────────────┘
+```
+
+### Desktop Mode (Tauri)
+
+```
 ┌─────────────────────────────────────────────────────────┐
-│                    External APIs                         │
-│         (No CORS restrictions from server)               │
+│                  Tauri Desktop App                       │
+│   ┌─────────────────────────────────────────────────┐   │
+│   │              Vue Frontend (WebView)              │   │
+│   └───────────────────────┬─────────────────────────┘   │
+│                           │ Tauri IPC                    │
+│   ┌───────────────────────┴─────────────────────────┐   │
+│   │                 Rust Backend                     │   │
+│   │  ┌─────────────────┐  ┌─────────────────────┐   │   │
+│   │  │  SQLite Storage │  │   HTTP Proxy        │   │   │
+│   │  │  (rusqlite)     │  │   (hyper/rustls)    │   │   │
+│   │  └─────────────────┘  └─────────────────────┘   │   │
+│   └─────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────┘
 ```
 
 ## Features
 
+### Core Features
 - **CORS Bypass Proxy**: Execute HTTP requests to any URL without browser CORS restrictions
 - **Static File Serving**: Embedded Vue frontend for single-binary distribution
 - **Redirect Tracking**: Full redirect chain capture with timing per hop
 - **Binary Response Support**: Base64 encoding for non-text responses
-- **Detailed Timing**: Request duration metrics
-- **TLS Support**: HTTPS requests via rustls
+- **Detailed Timing**: DNS, TCP, TLS, TTFB, and download timing metrics
+- **TLS Support**: HTTPS requests via rustls with certificate info capture
 
-## API Endpoints
+### Desktop-Only Features (Tauri)
+- **SQLite Storage**: Persistent storage for collections, settings, and auth configs
+- **No Port Conflicts**: Uses Tauri IPC instead of localhost server
+- **Native Performance**: Direct Rust execution without HTTP overhead
+
+## Project Structure
+
+```
+http-visualizer-app/
+├── Cargo.toml                 # Rust dependencies (library)
+├── build.rs                   # Build script
+├── src/
+│   ├── main.rs               # Standalone server entry point
+│   ├── lib.rs                # Library exports (proxy logic)
+│   ├── config.rs             # Environment configuration
+│   ├── error.rs              # Error types
+│   ├── routes/               # HTTP routes (standalone server)
+│   │   ├── mod.rs            # Routes module
+│   │   ├── health.rs         # GET /api/health
+│   │   ├── proxy.rs          # POST /api/proxy
+│   │   └── static_files.rs   # Embedded static files
+│   ├── proxy/                # Core proxy logic (shared)
+│   │   ├── mod.rs            # Proxy module
+│   │   ├── types.rs          # ProxyRequest/ProxyResponse
+│   │   ├── executor.rs       # HTTP request execution
+│   │   ├── service.rs        # Proxy service interface
+│   │   └── response_builder.rs # Response construction
+│   ├── shared/               # Shared utilities
+│   │   ├── mod.rs            # Shared module
+│   │   ├── status_text.rs    # HTTP status text mapping
+│   │   ├── timing.rs         # Timing utilities
+│   │   └── cert_parser.rs    # TLS certificate parsing
+│   └── infra/                # Infrastructure
+│       ├── mod.rs            # Infra module
+│       ├── dns.rs            # DNS resolution with timing
+│       ├── tls.rs            # TLS configuration
+│       └── decompressor.rs   # Response decompression
+├── frontend/                  # Vue build output (gitignored)
+└── src-tauri/                 # Tauri desktop app
+    ├── Cargo.toml            # Tauri dependencies
+    ├── build.rs              # Tauri build script
+    ├── tauri.conf.json       # Tauri configuration
+    ├── capabilities/
+    │   └── default.json      # Tauri permissions
+    ├── icons/                # App icons
+    └── src/
+        ├── main.rs           # Tauri entry point
+        └── commands/         # IPC commands
+            ├── mod.rs        # Commands module
+            ├── storage.rs    # SQLite storage commands
+            └── proxy.rs      # HTTP proxy command
+```
+
+## API Endpoints (Web Mode)
 
 ### `GET /api/health`
 
-Health check endpoint for detecting backend availability.
+Health check endpoint.
 
-**Response:**
 ```json
 {
   "status": "ok",
@@ -51,23 +124,20 @@ Health check endpoint for detecting backend availability.
 
 ### `POST /api/proxy`
 
-Proxy an HTTP request to bypass CORS restrictions.
+Proxy an HTTP request.
 
 **Request:**
 ```json
 {
   "method": "GET",
   "url": "https://api.example.com/data",
-  "headers": {
-    "Authorization": "Bearer token",
-    "Accept": "application/json"
-  },
+  "headers": { "Authorization": "Bearer token" },
   "body": null,
   "timeout": 30000
 }
 ```
 
-**Response (Success):**
+**Response:**
 ```json
 {
   "success": true,
@@ -78,395 +148,204 @@ Proxy an HTTP request to bypass CORS restrictions.
     "body": "{\"result\": \"data\"}",
     "isBinary": false,
     "size": 18,
-    "timing": { "total": 245 },
+    "timing": {
+      "total": 245,
+      "dns": 12,
+      "tcp": 45,
+      "tls": 89,
+      "ttfb": 156,
+      "download": 3
+    },
     "url": "https://api.example.com/data",
-    "redirected": false
+    "redirected": false,
+    "tls": {
+      "protocol": "TLSv1.3",
+      "cipher": "TLS_AES_256_GCM_SHA384"
+    }
   }
 }
 ```
 
-**Response (Error):**
-```json
-{
-  "success": false,
-  "error": {
-    "message": "Connection refused",
-    "code": "CONNECTION_FAILED"
-  }
-}
-```
+## Tauri IPC Commands (Desktop Mode)
+
+### Storage Commands
+
+| Command | Parameters | Returns | Description |
+|---------|------------|---------|-------------|
+| `storage_get` | `store`, `key` | `Option<String>` | Get value from SQLite |
+| `storage_set` | `store`, `key`, `value` | `()` | Set value in SQLite |
+| `storage_remove` | `store`, `key` | `()` | Remove value from SQLite |
+| `storage_has` | `store`, `key` | `bool` | Check if key exists |
+| `storage_clear` | `store` | `()` | Clear all keys in store |
+| `storage_keys` | `store` | `Vec<String>` | Get all keys in store |
+
+Store names: `collections`, `theme`, `auth`, `tokens`, `environment`, `presentation`
+
+### Proxy Command
+
+| Command | Parameters | Returns | Description |
+|---------|------------|---------|-------------|
+| `proxy_request` | `request: ProxyRequest` | `ProxyResponse` | Execute HTTP request |
 
 ## Building
 
 ### Prerequisites
 
-- Rust 1.70+ (install via [rustup](https://rustup.rs/))
-- Node.js 18+ and Yarn (for frontend build)
+- Rust 1.70+ ([rustup](https://rustup.rs/))
+- Node.js 18+ and Yarn (for frontend)
 
-### Development
+### Build Standalone Server
 
 ```bash
-# Build frontend first
+# Build frontend
 cd ../http-visualizer
 yarn install
 yarn build
 
-# Copy frontend assets
+# Copy frontend to embedding location
 cp -r dist/* ../http-visualizer-app/frontend/
 
-# Run backend in development mode
+# Build server
 cd ../http-visualizer-app
-cargo run
-```
-
-The server starts on `http://localhost:3000` by default.
-
-### Production Build
-
-```bash
-# Build optimized release binary
 cargo build --release
 
-# Binary location: target/release/http-visualizer-app
+# Run (available at http://localhost:3000)
+./target/release/http-visualizer-app
 ```
 
-### Environment Variables
+### Build Tauri Desktop App
+
+```bash
+# Build frontend
+cd http-visualizer
+yarn install
+yarn build
+
+# Copy frontend
+cp -r dist/* ../http-visualizer-app/frontend/
+
+# Build Tauri app
+cd ../http-visualizer-app/src-tauri
+cargo build --release
+
+# Executable at: target/release/http-visualizer-desktop.exe
+```
+
+### Environment Variables (Server Mode)
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `3000` | Server port |
-| `RUST_LOG` | `info` | Log level (trace, debug, info, warn, error) |
-| `FRONTEND_PATH` | embedded | Path to frontend assets (optional) |
+| `RUST_LOG` | `info` | Log level |
 
-## Docker
-
-### Build and Run
+## Docker (Server Mode)
 
 ```bash
-# Build from project root (contains both http-visualizer and http-visualizer-app)
+# Build and run
 docker-compose up --build
 
-# Or build manually
+# Or manually
 docker build -t http-visualizer -f Dockerfile ..
 docker run -p 3000:3000 http-visualizer
 ```
 
-### Docker Compose
-
-```yaml
-version: '3.8'
-services:
-  http-visualizer:
-    build:
-      context: ..
-      dockerfile: http-visualizer-app/Dockerfile
-    ports:
-      - "3000:3000"
-    environment:
-      - RUST_LOG=info
-```
-
-## Tauri Desktop App
-
-The `src-tauri/` directory contains configuration for building a desktop application using Tauri.
-
-### Prerequisites
-
-- [Tauri Prerequisites](https://tauri.app/v1/guides/getting-started/prerequisites)
-- Tauri CLI: `cargo install tauri-cli`
-
-### Build Desktop App
-
-```bash
-cd src-tauri
-
-# Development
-cargo tauri dev
-
-# Production build
-cargo tauri build
-```
-
-The built application will be in `src-tauri/target/release/bundle/`.
-
-## Project Structure
-
-```
-http-visualizer-app/
-├── Cargo.toml                 # Rust dependencies
-├── build.rs                   # Build script (creates placeholder frontend)
-├── Dockerfile                 # Multi-stage Docker build
-├── docker-compose.yml         # Container orchestration
-├── src/
-│   ├── main.rs               # Entry point, server setup
-│   ├── lib.rs                # Library exports
-│   ├── config.rs             # Environment configuration
-│   ├── error.rs              # Error types and handling
-│   ├── routes/
-│   │   ├── mod.rs
-│   │   ├── health.rs         # GET /api/health
-│   │   ├── proxy.rs          # POST /api/proxy handler
-│   │   └── static_files.rs   # Embedded static file serving
-│   └── proxy/
-│       ├── mod.rs
-│       ├── types.rs          # Request/Response types
-│       └── executor.rs       # HTTP request execution
-├── frontend/                  # Vue build output (gitignored)
-└── src-tauri/                 # Tauri desktop configuration
-    ├── Cargo.toml
-    ├── tauri.conf.json
-    └── src/main.rs
-```
-
 ## Frontend Integration
 
-The Vue frontend seamlessly integrates with the Rust backend through the `useExtensionBridge` composable. The same code path that communicates with the browser extension also supports the proxy backend as a fallback.
-
-### Detection Flow
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        App Initialization                        │
-└─────────────────────────────┬───────────────────────────────────┘
-                              │
-              ┌───────────────┴───────────────┐
-              │                               │
-              ▼                               ▼
-┌─────────────────────────┐     ┌─────────────────────────┐
-│ checkExtensionAvailability() │     │ checkProxyBackendAvailability() │
-│                         │     │                         │
-│  Sends postMessage to   │     │  GET /api/health        │
-│  browser extension      │     │                         │
-└───────────┬─────────────┘     └───────────┬─────────────┘
-            │                               │
-            ▼                               ▼
-┌─────────────────────────┐     ┌─────────────────────────┐
-│ isExtensionAvailable    │     │ isProxyBackendAvailable │
-│ = true/false            │     │ = true/false            │
-└─────────────────────────┘     └─────────────────────────┘
-```
-
-Both checks run **in parallel** on startup. The first available method is used for requests.
-
-### Request Execution Flow
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│              executeRequestViaExtension(options)                 │
-└─────────────────────────────┬───────────────────────────────────┘
-                              │
-                              ▼
-                    ┌─────────────────────┐
-                    │ Extension available? │
-                    └──────────┬──────────┘
-                               │
-                 ┌─────────────┴─────────────┐
-                 │ YES                       │ NO
-                 ▼                           ▼
-    ┌────────────────────┐      ┌─────────────────────┐
-    │ executeViaExtension │      │ Proxy backend       │
-    │                    │      │ available?          │
-    │ postMessage to     │      └──────────┬──────────┘
-    │ content script     │                 │
-    └────────────────────┘       ┌─────────┴─────────┐
-                                 │ YES               │ NO
-                                 ▼                   ▼
-                    ┌────────────────────┐  ┌───────────────┐
-                    │ executeViaProxy    │  │ Throw Error   │
-                    │                    │  │ "Neither      │
-                    │ POST /api/proxy    │  │ available"    │
-                    └────────────────────┘  └───────────────┘
-```
-
-### Modified File
-
-**`http-visualizer/src/composables/useExtensionBridge.ts`**
-
-#### Added State
+The Vue frontend automatically detects the runtime environment:
 
 ```typescript
-// Proxy backend detection state
-let isProxyBackendAvailable = ref(false)
-let proxyBackendVersion = ref<string | null>(null)
-```
+import { isTauri } from '@/services/storage/platform'
 
-#### Added Functions
-
-| Function | Description |
-|----------|-------------|
-| `checkProxyBackendAvailability()` | Fetches `GET /api/health` to detect if backend is running |
-| `executeViaProxy(options)` | Sends request to `POST /api/proxy` |
-| `isAnyBridgeAvailable()` | Returns `true` if extension OR proxy is available |
-| `getCurrentBridgeType()` | Returns `'extension'`, `'proxy'`, or `null` |
-
-#### Proxy Backend Detection
-
-```typescript
-async function checkProxyBackendAvailability(): Promise<boolean> {
-  try {
-    const response = await fetch('/api/health', {
-      method: 'GET',
-      headers: { Accept: 'application/json' },
-    })
-    if (response.ok) {
-      const data = await response.json()
-      isProxyBackendAvailable.value = true
-      proxyBackendVersion.value = data.version || '1.0.0'
-      return true
-    }
-  } catch {
-    // Backend not available
-  }
-  isProxyBackendAvailable.value = false
-  return false
+if (isTauri()) {
+  // Use Tauri IPC for storage and proxy
+  await invoke('storage_set', { store: 'theme', key: 'current', value: 'matrix' })
+  const response = await invoke('proxy_request', { request })
+} else {
+  // Use localStorage and fetch API
+  localStorage.setItem('theme', 'matrix')
+  const response = await fetch('/api/proxy', { method: 'POST', body: JSON.stringify(request) })
 }
 ```
 
-#### Proxy Request Execution
+### Platform Detection
 
 ```typescript
-async function executeViaProxy(options: {
-  method: string
-  url: string
-  headers?: Record<string, string>
-  body?: string
-  timeout?: number
-}): Promise<ExtensionResponse> {
-  const response = await fetch('/api/proxy', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      method: options.method,
-      url: options.url,
-      headers: options.headers || {},
-      body: options.body,
-      timeout: options.timeout || 30000,
-    }),
-  })
-  return response.json()
+// src/services/storage/platform.ts
+export function isTauri(): boolean {
+  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 }
 ```
 
-#### Composable Exports
+### Storage Abstraction
 
 ```typescript
-export function useExtensionBridge() {
-  return {
-    // State
-    isExtensionAvailable: readonly(isExtensionAvailable),
-    extensionVersion: readonly(extensionVersion),
-    isProxyBackendAvailable: readonly(isProxyBackendAvailable),    // NEW
-    proxyBackendVersion: readonly(proxyBackendVersion),            // NEW
+// Automatically uses SQLite (Tauri) or localStorage (browser)
+import { getStorage } from '@/services/storage'
 
-    // Methods
-    checkExtensionAvailability,
-    checkProxyBackendAvailability,  // NEW
-    executeViaExtension,
-    executeViaProxy,                // NEW
-  }
-}
-
-// Utility exports
-export function isAnyBridgeAvailable(): boolean              // NEW
-export function getCurrentBridgeType(): 'extension' | 'proxy' | null  // NEW
+const storage = getStorage('collections')
+await storage.set('my-collection', collectionData)
+const data = await storage.get('my-collection')
 ```
 
-### Response Format Compatibility
-
-The Rust backend returns responses in the **exact same format** as the browser extension, ensuring seamless compatibility:
+### API Client
 
 ```typescript
-interface ExtensionResponse {
-  success: boolean
-  data?: {
-    status: number
-    statusText: string
-    headers: Record<string, string>
-    requestHeaders?: Record<string, string>
-    body: string
-    bodyBase64?: string | null
-    isBinary: boolean
-    size: number
-    timing: {
-      total: number
-      dns?: number
-      tcp?: number
-      tls?: number
-      ttfb?: number
-      download?: number
-    }
-    url: string
-    redirected: boolean
-    redirectChain?: RedirectHop[]
-    tls?: TlsInfo
-    sizeBreakdown?: SizeBreakdown
-    serverIP?: string
-    protocol?: string
-    fromCache?: boolean
-    connection?: string
-    serverSoftware?: string
-  }
-  error?: {
-    message: string
-    code: string
-    name?: string
-  }
-}
-```
+// Automatically uses IPC (Tauri) or fetch (browser)
+import { proxyRequest } from '@/services/api'
 
-### Usage Example
-
-```typescript
-// In a Vue component
-import { useExtensionBridge } from '@/composables/useExtensionBridge'
-
-const {
-  isExtensionAvailable,
-  isProxyBackendAvailable,
-  executeViaExtension,
-  executeViaProxy
-} = useExtensionBridge()
-
-// Automatic fallback (recommended)
-const response = await executeRequestViaExtension({
+const response = await proxyRequest({
   method: 'GET',
   url: 'https://api.example.com/data',
-  headers: { 'Accept': 'application/json' }
+  headers: { 'Accept': 'application/json' },
+  timeout: 30000
 })
-
-// Or explicitly use proxy
-if (isProxyBackendAvailable.value) {
-  const response = await executeViaProxy({
-    method: 'POST',
-    url: 'https://api.example.com/submit',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ data: 'value' })
-  })
-}
 ```
 
-### Deployment Scenarios
+## SQLite Schema (Tauri)
 
-| Scenario | Extension | Proxy Backend | Notes |
-|----------|:---------:|:-------------:|-------|
-| Browser + Extension | ✅ | - | Extension handles all requests |
-| Browser + Rust Server | - | ✅ | Backend proxies requests |
-| Browser + Both | ✅ | ✅ | Extension takes priority |
-| Tauri Desktop App | - | ✅ | Embedded server in app |
-| Docker Container | - | ✅ | Single container deployment |
-| Static Hosting Only | - | - | Error: no bridge available |
+```sql
+CREATE TABLE storage (
+    store TEXT NOT NULL,      -- 'collections', 'theme', 'auth', etc.
+    key TEXT NOT NULL,        -- storage key
+    value TEXT NOT NULL,      -- JSON-serialized value
+    updated_at INTEGER,       -- Unix timestamp
+    PRIMARY KEY (store, key)
+);
+```
+
+Database location: `%APPDATA%/com.http-visualizer.app/http-visualizer.db` (Windows)
+
+## Deployment Scenarios
+
+| Scenario | Storage | Proxy | Notes |
+|----------|---------|-------|-------|
+| Browser + Extension | localStorage | Extension | Best for casual use |
+| Browser + Server | localStorage | /api/proxy | Docker/server deployment |
+| Tauri Desktop | SQLite | IPC | Best for power users |
+| Browser + Both | localStorage | Extension (priority) | Fallback to server |
 
 ## Dependencies
 
+### Core (Shared)
+| Crate | Purpose |
+|-------|---------|
+| `hyper` | Low-level HTTP client |
+| `tokio-rustls` | TLS with certificate access |
+| `hickory-resolver` | DNS resolution with timing |
+| `serde` | Serialization |
+
+### Server Mode
 | Crate | Purpose |
 |-------|---------|
 | `axum` | Web framework |
-| `tokio` | Async runtime |
-| `reqwest` | HTTP client with rustls |
-| `serde` | Serialization |
-| `rust-embed` | Embed static files in binary |
-| `tower-http` | CORS, compression, tracing middleware |
-| `tracing` | Structured logging |
+| `rust-embed` | Static file embedding |
+| `tower-http` | CORS middleware |
+
+### Tauri Mode
+| Crate | Purpose |
+|-------|---------|
+| `tauri` | Desktop framework |
+| `rusqlite` | SQLite database |
 
 ## License
 
