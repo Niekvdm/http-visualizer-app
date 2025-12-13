@@ -3,12 +3,12 @@ FROM node:20-alpine AS frontend-builder
 
 WORKDIR /frontend
 
-# Copy frontend source
-COPY http-visualizer/package.json http-visualizer/yarn.lock http-visualizer/.yarnrc.yml ./
-COPY http-visualizer/.yarn ./.yarn
+# Copy frontend package files
+COPY http-visualizer/package.json http-visualizer/yarn.lock ./
+COPY http-visualizer/.yarnrc.yml ./.yarnrc.yml
 
-# Install dependencies
-RUN corepack enable && yarn install --immutable
+# Install dependencies (corepack provides yarn)
+RUN corepack enable && yarn install
 
 # Copy source and build
 COPY http-visualizer/ ./
