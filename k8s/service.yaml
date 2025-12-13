@@ -29,8 +29,8 @@ spec:
     spec:
       containers:
         - name: tommie
-          image: docker.io/library/http-visualizer:latest
-          imagePullPolicy: Never  # Use locally imported image
+          image: ghcr.io/niekvdm/http-visualizer:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 3000
           env:

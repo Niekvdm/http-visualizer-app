@@ -1,0 +1,12 @@
+apiVersion: argocd-image-updater.argoproj.io/v1alpha1
+kind: ImageUpdater
+metadata:
+  name: http-visualizer
+  namespace: argocd
+spec:
+  application: http-visualizer
+  images:
+    - name: ghcr.io/niekvdm/http-visualizer
+      updateStrategy: latest
+      # Path to the container in the deployment
+      containerName: tommie
