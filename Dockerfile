@@ -14,35 +14,31 @@ RUN corepack enable && yarn install
 COPY http-visualizer/ ./
 RUN yarn build
 
-# Cargo chef - prepare recipe (analyzes dependencies)
-FROM rust:1.83-alpine AS chef
+# Build stage - Backend
+FROM rust:1.83-alpine AS backend-builder
+
+# Install build dependencies
 RUN apk add --no-cache musl-dev pkgconfig openssl-dev openssl-libs-static
-RUN cargo install cargo-chef
+
 WORKDIR /app
 
-# Planner stage - create dependency recipe
-FROM chef AS planner
+# Copy manifests first (better layer caching)
 COPY http-visualizer-app/Cargo.toml http-visualizer-app/Cargo.lock* ./
 COPY http-visualizer-app/build.rs ./
-COPY http-visualizer-app/src ./src
-RUN cargo chef prepare --recipe-path recipe.json
 
-# Builder stage - build dependencies first (cached), then app
-FROM chef AS backend-builder
+# Create dummy src to build dependencies
+RUN mkdir src && echo "fn main() {}" > src/main.rs && echo "" > src/lib.rs
 
-# Copy recipe and build dependencies only (this layer is cached)
-COPY --from=planner /app/recipe.json recipe.json
-RUN cargo chef cook --release --recipe-path recipe.json
+# Build dependencies only (cached if Cargo.toml unchanged)
+RUN cargo build --release && rm -rf src target/release/deps/http_visualizer*
 
-# Copy source and build the application
-COPY http-visualizer-app/Cargo.toml http-visualizer-app/Cargo.lock* ./
-COPY http-visualizer-app/build.rs ./
+# Copy actual source
 COPY http-visualizer-app/src ./src
 
-# Copy frontend build from previous stage
+# Copy frontend build
 COPY --from=frontend-builder /frontend/dist ./frontend
 
-# Build just the application (dependencies already compiled)
+# Build the application
 RUN cargo build --release
 
 # Runtime stage
