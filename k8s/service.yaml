@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: tommie-service
+  namespace: dzone-dev
+spec:
+  selector:
+    app: tommie
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tommie-deployment
+  namespace: dzone-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tommie
+  template:
+    metadata:
+      labels:
+        app: tommie
+    spec:
+      containers:
+        - name: tommie
+          image: docker.io/library/http-visualizer:latest
+          imagePullPolicy: Never  # Use locally imported image
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+            - name: RUST_LOG
+              value: "http_visualizer_app=info"
+            - name: DISABLE_PROXY
+              value: "true"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "1"
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5

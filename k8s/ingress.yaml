@@ -1,0 +1,28 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tommie-ingress
+  namespace: dzone-dev
+  annotations:
+    haproxy.org/ingress.class: "haproxy"
+    haproxy.org/timeout.connect: "5000ms"
+    haproxy.org/timeout.client: "60000ms"
+    haproxy.org/timeout.server: "60000ms"
+    cert-manager.io/cluster-issuer: "letsencrypt-production"
+    haproxy.org/ssl-redirect: "true"
+spec:
+  rules:
+  - host: tommie.digit.zone
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: tommie-service
+            port:
+              number: 80
+  tls:
+  - hosts:
+    - tommie.digit.zone
+    secretName: tommie-tls
