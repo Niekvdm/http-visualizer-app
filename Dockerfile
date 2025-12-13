@@ -27,13 +27,19 @@ COPY http-visualizer-app/Cargo.toml http-visualizer-app/Cargo.lock* ./
 COPY http-visualizer-app/build.rs ./
 
 # Create dummy src to build dependencies
-RUN mkdir src && echo "fn main() {}" > src/main.rs && echo "" > src/lib.rs
+RUN mkdir src && echo "fn main() {}" > src/main.rs && echo "// dummy" > src/lib.rs
 
 # Build dependencies only (cached if Cargo.toml unchanged)
-RUN cargo build --release && rm -rf src target/release/deps/http_visualizer*
+RUN cargo build --release
+
+# Remove dummy source and compiled app artifacts (keep dependencies)
+RUN rm -rf src && rm -f target/release/deps/http_visualizer* && rm -f target/release/deps/libhttp_visualizer* && rm -f target/release/http-visualizer-app*
 
 # Copy actual source
 COPY http-visualizer-app/src ./src
+
+# Touch source files to ensure rebuild
+RUN touch src/main.rs src/lib.rs
 
 # Copy frontend build
 COPY --from=frontend-builder /frontend/dist ./frontend
