@@ -6,7 +6,11 @@ on:
     paths-ignore:
       - 'k8s/**'
       - '*.md'
+      - 'docs/**'
   workflow_dispatch:
+
+# Security: Self-hosted runner - only runs on push to main, not on PRs
+# PRs from forks could run malicious code on the runner
 
 env:
   REGISTRY: ghcr.io
