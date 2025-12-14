@@ -15,37 +15,25 @@ COPY http-visualizer/ ./
 RUN yarn build
 
 # Build stage - Backend
-FROM rust:1.83-alpine AS backend-builder
+FROM golang:1.23-alpine AS backend-builder
 
 # Install build dependencies
-RUN apk add --no-cache musl-dev pkgconfig openssl-dev openssl-libs-static
+RUN apk add --no-cache gcc musl-dev
 
 WORKDIR /app
 
-# Copy manifests first (better layer caching)
-COPY http-visualizer-app/Cargo.toml http-visualizer-app/Cargo.lock* ./
-COPY http-visualizer-app/build.rs ./
+# Copy go mod files
+COPY http-visualizer-app/go.mod http-visualizer-app/go.sum ./
+RUN go mod download
 
-# Create dummy src to build dependencies
-RUN mkdir src && echo "fn main() {}" > src/main.rs && echo "// dummy" > src/lib.rs
+# Copy source code
+COPY http-visualizer-app/ ./
 
-# Build dependencies only (cached if Cargo.toml unchanged)
-RUN cargo build --release
+# Copy frontend build to embedding location
+COPY --from=frontend-builder /frontend/dist ./internal/static/frontend
 
-# Remove dummy source and compiled app artifacts (keep dependencies)
-RUN rm -rf src && rm -f target/release/deps/http_visualizer* && rm -f target/release/deps/libhttp_visualizer* && rm -f target/release/http-visualizer-app*
-
-# Copy actual source
-COPY http-visualizer-app/src ./src
-
-# Touch source files to ensure rebuild
-RUN touch src/main.rs src/lib.rs
-
-# Copy frontend build
-COPY --from=frontend-builder /frontend/dist ./frontend
-
-# Build the application
-RUN cargo build --release
+# Build the server binary (frontend is embedded at compile time)
+RUN CGO_ENABLED=1 GOOS=linux go build -o server ./cmd/server
 
 # Runtime stage
 FROM alpine:3.19
@@ -55,8 +43,8 @@ RUN apk add --no-cache ca-certificates
 
 WORKDIR /app
 
-# Copy the binary from builder
-COPY --from=backend-builder /app/target/release/http-visualizer-app ./
+# Copy binary from builder (frontend is embedded in the binary)
+COPY --from=backend-builder /app/server .
 
 # Create non-root user
 RUN addgroup -g 1000 app && adduser -u 1000 -G app -s /bin/sh -D app
@@ -67,7 +55,6 @@ EXPOSE 3000
 
 # Set environment variables
 ENV PORT=3000
-ENV RUST_LOG=http_visualizer_app=info
 
-# Run the application
-CMD ["./http-visualizer-app"]
+# Run the server
+CMD ["./server"]

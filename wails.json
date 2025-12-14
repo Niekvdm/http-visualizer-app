@@ -1,0 +1,10 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "tommie",
+  "outputfilename": "tommie",
+  "skipBindings": false,
+  "author": {
+    "name": "Digit Zone",
+    "email": "info@digit.zone"
+  }
+}

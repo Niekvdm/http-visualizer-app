@@ -1,0 +1,25 @@
+# Build artifacts
+build/
+bin/
+.tmp/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+README.md
+*.md
+
+# Wails specific (not needed for server)
+wails.json

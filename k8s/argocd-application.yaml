@@ -1,12 +1,16 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: http-visualizer
+  name: tommie
   namespace: argocd
+  annotations:
+    argocd-image-updater.argoproj.io/image-list: app=ghcr.io/niekvdm/tommie
+    argocd-image-updater.argoproj.io/app.update-strategy: latest
+    argocd-image-updater.argoproj.io/write-back-method: git
 spec:
   project: default
   source:
-    repoURL: https://github.com/Niekvdm/http-visualizer-app.git
+    repoURL: https://github.com/nickvdm/tommie.git
     targetRevision: HEAD
     path: k8s
   destination:

@@ -14,7 +14,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: niekvdm/http-visualizer
+  IMAGE_NAME: niekvdm/tommie
 
 jobs:
   build-and-push:

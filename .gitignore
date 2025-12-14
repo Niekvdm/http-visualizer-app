@@ -1,7 +1,33 @@
-/target
-/frontend/*
-!/frontend/.gitkeep
-Cargo.lock
-src-tauri/gen/
-src-tauri/target/
-src-tauri/node_modules/
+# Build output
+build/
+bin/
+.tmp/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Frontend (copied from ../http-visualizer/dist)
+frontend/
+
+# SQLite database
+*.db
+*.db-shm
+*.db-wal
+
+# Go
+*.test
+*.out
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
