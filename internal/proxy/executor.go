@@ -164,8 +164,12 @@ func ExecuteRequest(request ProxyRequest) ProxyResponse {
 	timing.EndDNS()
 
 	var serverIP string
-	if len(dnsResult.IPs) > 0 {
-		serverIP = dnsResult.IPs[0].String()
+	var resolvedIPs []string
+	for _, ip := range dnsResult.IPs {
+		resolvedIPs = append(resolvedIPs, ip.String())
+	}
+	if len(resolvedIPs) > 0 {
+		serverIP = resolvedIPs[0]
 	}
 
 	// Track redirect chain
@@ -342,6 +346,9 @@ func ExecuteRequest(request ProxyRequest) ProxyResponse {
 			serverIP:        serverIP,
 			requestHeaders:  requestHeaders,
 			requestBodySize: requestBodySize,
+			hostname:        ctx.host,
+			port:            ctx.port,
+			resolvedIPs:     resolvedIPs,
 		})
 	}
 }

@@ -23,6 +23,9 @@ type responseBuildParams struct {
 	serverIP        string
 	requestHeaders  map[string]string
 	requestBodySize *int
+	hostname        string
+	port            string
+	resolvedIPs     []string
 }
 
 // isBinaryContent determines if response body is likely binary based on content-type.
@@ -121,6 +124,7 @@ func buildResponse(params responseBuildParams) ProxyResponse {
 			ValidFrom: &params.tlsInfo.ValidFrom,
 			ValidTo:   &params.tlsInfo.ValidTo,
 			Valid:     &valid,
+			SANs:      params.tlsInfo.SANs,
 		}
 	}
 
@@ -138,6 +142,16 @@ func buildResponse(params responseBuildParams) ProxyResponse {
 	var serverIPPtr *string
 	if params.serverIP != "" {
 		serverIPPtr = &params.serverIP
+	}
+
+	var hostnamePtr *string
+	if params.hostname != "" {
+		hostnamePtr = &params.hostname
+	}
+
+	var portPtr *string
+	if params.port != "" {
+		portPtr = &params.port
 	}
 
 	fromCache := false
@@ -170,6 +184,9 @@ func buildResponse(params responseBuildParams) ProxyResponse {
 		RequestBodySize: params.requestBodySize,
 		Connection:      connectionPtr,
 		ServerSoftware:  serverSoftwarePtr,
+		Hostname:        hostnamePtr,
+		Port:            portPtr,
+		ResolvedIPs:     params.resolvedIPs,
 	}
 
 	return NewSuccessResponse(data)

@@ -14,6 +14,7 @@ type CertInfo struct {
 	Subject   string
 	ValidFrom uint64
 	ValidTo   uint64
+	SANs      []string // Subject Alternative Names (DNS names and IP addresses)
 }
 
 // ExtractCertInfo extracts certificate information from a TLS connection state.
@@ -34,6 +35,7 @@ func ExtractCertInfo(state *tls.ConnectionState) *CertInfo {
 		info.Issuer = extractCN(cert.Issuer.String())
 		info.ValidFrom = uint64(cert.NotBefore.Unix())
 		info.ValidTo = uint64(cert.NotAfter.Unix())
+		info.SANs = extractSANs(cert)
 	}
 
 	return info
@@ -57,6 +59,7 @@ func ParseCertificate(der []byte) (*CertInfo, error) {
 		Issuer:    extractCN(cert.Issuer.String()),
 		ValidFrom: uint64(cert.NotBefore.Unix()),
 		ValidTo:   uint64(cert.NotAfter.Unix()),
+		SANs:      extractSANs(cert),
 	}, nil
 }
 
@@ -81,4 +84,20 @@ func extractCN(dn string) string {
 	// Simple extraction - the full DN is returned if CN extraction fails
 	// Go's x509 already provides a nice string representation
 	return dn
+}
+
+// extractSANs extracts Subject Alternative Names from a certificate.
+// Returns DNS names and IP addresses as strings.
+func extractSANs(cert *x509.Certificate) []string {
+	var sans []string
+
+	// Add DNS names
+	sans = append(sans, cert.DNSNames...)
+
+	// Add IP addresses
+	for _, ip := range cert.IPAddresses {
+		sans = append(sans, ip.String())
+	}
+
+	return sans
 }

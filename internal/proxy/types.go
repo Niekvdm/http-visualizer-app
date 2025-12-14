@@ -33,13 +33,14 @@ type RedirectHop struct {
 
 // TLSInfo contains TLS/SSL certificate information.
 type TLSInfo struct {
-	Protocol  *string `json:"protocol,omitempty"`
-	Cipher    *string `json:"cipher,omitempty"`
-	Issuer    *string `json:"issuer,omitempty"`
-	Subject   *string `json:"subject,omitempty"`
-	ValidFrom *uint64 `json:"validFrom,omitempty"`
-	ValidTo   *uint64 `json:"validTo,omitempty"`
-	Valid     *bool   `json:"valid,omitempty"`
+	Protocol  *string  `json:"protocol,omitempty"`
+	Cipher    *string  `json:"cipher,omitempty"`
+	Issuer    *string  `json:"issuer,omitempty"`
+	Subject   *string  `json:"subject,omitempty"`
+	ValidFrom *uint64  `json:"validFrom,omitempty"`
+	ValidTo   *uint64  `json:"validTo,omitempty"`
+	Valid     *bool    `json:"valid,omitempty"`
+	SANs      []string `json:"san,omitempty"` // Subject Alternative Names
 }
 
 // SizeBreakdown contains response size information.
@@ -76,6 +77,9 @@ type ResponseData struct {
 	RequestBodySize *int              `json:"requestBodySize,omitempty"`
 	Connection      *string           `json:"connection,omitempty"`
 	ServerSoftware  *string           `json:"serverSoftware,omitempty"`
+	Hostname        *string           `json:"hostname,omitempty"`    // Hostname from URL
+	Port            *string           `json:"port,omitempty"`        // Port from URL
+	ResolvedIPs     []string          `json:"resolvedIps,omitempty"` // All resolved IP addresses
 }
 
 // ErrorData contains error information matching extension protocol.
